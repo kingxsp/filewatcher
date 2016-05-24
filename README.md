@@ -10,7 +10,7 @@ First, add the following to your `Cargo.toml`
 Example
 
     extern crate filewatcher;
-    use filewatcher::FileWatcher;
+    use filewatcher::{FileWatcher, Message};
 	
 	fn main() {
 		let mut times = 0;
@@ -27,20 +27,19 @@ Example
 	
 		loop {
 		    match watcher.next() {
-		        Some(line) => {
-					if line == ""{
-						println!("None None!!!");
-					} else {
-						println!("{:?}", line);	
-					}
+				Some(Message::NONE) => {
+					println!("None None!!!");
+				},
+		        Some(Message::Line{inode, position, line}) => {
+					println!("inode: {:?}  position: {:?} line: {:?}", inode, position, line);	
 		        },
 		        None => break
 		    }
-		
+			
 			println!("filename: {:?}", watcher.get_filename());
 			println!("file inode: {:?}", watcher.get_inode());
 			println!("file position: {:?}", watcher.get_position());
-		
+			
 			if times == 5 {
 				watcher.close();
 			}

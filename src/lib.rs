@@ -15,6 +15,11 @@ pub struct FileWatcher {
 	finish: bool
 }
 
+pub enum Message {
+	NONE,
+	Line { inode: u64, position: u64, line: String }
+}
+
 impl FileWatcher {
     pub fn new(filename: String) -> Result<FileWatcher, ::std::io::Error> {
         let file = match File::open(filename.clone()) {
@@ -66,8 +71,7 @@ impl FileWatcher {
     fn reopen(&mut self){
         loop {
             match File::open(self.filename.clone()) {
-                Ok(x) => {
-                    let f = x;
+                Ok(f) => {
                     let metadata = match f.metadata() {
                         Ok(m) => m,
                         Err(_) => {
@@ -75,13 +79,14 @@ impl FileWatcher {
                             continue;
                         }
                     };
+					self.reader = BufReader::new(f);
                     if metadata.ino() != self.inode{
-                        self.reader = BufReader::new(f);
                         self.position = 0;
                         self.inode = metadata.ino();
                     } else {
                         sleep(Duration::new(1, 0));
                     }
+					self.reader.seek(SeekFrom::Start(self.position)).unwrap();
                     break;
                 },
                 Err(err) => {
@@ -97,26 +102,26 @@ impl FileWatcher {
         }
     }
 
-    fn read(&mut self) -> Option<String> {
+    fn read(&mut self) -> Option<Message> {
         let mut line = String::new();
         let resp = self.reader.read_line(&mut line);
-        match resp{
+        match resp {
 			Ok(0) => {
                 if self.finish {
                     None
                 } else {
                     self.reopen();
-                    self.reader.seek(SeekFrom::Start(self.position)).unwrap();
-					Some("".to_owned())
+					Some(Message::NONE)
                 }
 			},
             Ok(len) => {
+				println!("resp: {:?}", resp);
                 if self.finish {
                     return None;
                 }
                 self.position += len as u64;
                 self.reader.seek(SeekFrom::Start(self.position)).unwrap();
-				Some(line)
+				Some(Message::Line{ inode: self.inode, position: self.position, line: line })
             },
             Err(err) => panic!("Can't read: {}", err)
         }
@@ -125,9 +130,9 @@ impl FileWatcher {
 
 
 impl Iterator for FileWatcher {
-    type Item = String;
+    type Item = Message;
 
-    fn next(&mut self) -> Option<String> {
+    fn next(&mut self) -> Option<Message> {
 		self.read()
     }
 }
@@ -135,7 +140,7 @@ impl Iterator for FileWatcher {
 
 #[cfg(test)]
 mod tests {
-	use super::FileWatcher;
+	use super::{FileWatcher, Message};
 
     #[test]
     fn it_works() {
@@ -153,12 +158,11 @@ mod tests {
 
 		loop {
 		    match watcher.next() {
-		        Some(line) => {
-					if line == ""{
-						println!("None None!!!");
-					} else {
-						println!("{:?}", line);	
-					}
+				Some(Message::NONE) => {
+					println!("None None!!!");
+				},
+		        Some(Message::Line{inode, position, line}) => {
+					println!("inode: {:?}  position: {:?} line: {:?}", inode, position, line);	
 		        },
 		        None => break
 		    }

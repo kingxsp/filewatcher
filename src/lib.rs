@@ -7,12 +7,12 @@ use std::time::Duration;
 use std::os::unix::fs::MetadataExt;
 use std::io::ErrorKind;
 
-pub struct FileWatcher{
+pub struct FileWatcher {
     filename: String,
     inode: u64,
     position: u64,
     reader: BufReader<File>,
-    close: bool
+	finish: bool
 }
 
 impl FileWatcher {
@@ -34,7 +34,7 @@ impl FileWatcher {
                       inode: metadata.ino(),
                       position: position,
                       reader: reader,
-                      close: false})
+                      finish: false})
     }
 	
 	
@@ -46,7 +46,22 @@ impl FileWatcher {
         self.reader.seek(SeekFrom::Start(self.position)).unwrap();
 		Ok(self)
 	}
-
+	
+	pub fn get_filename(&mut self) -> String {
+		self.filename.clone()
+	}
+	
+	pub fn get_inode(&mut self) -> u64 {
+		self.inode
+	}
+	
+	pub fn get_position(&mut self) -> u64 {
+		self.position
+	}
+	
+	pub fn close(&mut self){
+		self.finish = true;
+	}
 
     fn reopen(&mut self){
         loop {
@@ -71,7 +86,7 @@ impl FileWatcher {
                 },
                 Err(err) => {
                     if err.kind() == ErrorKind::NotFound{
-						if self.close {
+						if self.finish {
 							break;
 						}
                         sleep(Duration::new(1, 0));
@@ -87,7 +102,7 @@ impl FileWatcher {
         let resp = self.reader.read_line(&mut line);
         match resp{
 			Ok(0) => {
-                if self.close {
+                if self.finish {
                     None
                 } else {
                     self.reopen();
@@ -96,7 +111,7 @@ impl FileWatcher {
                 }
 			},
             Ok(len) => {
-                if self.close {
+                if self.finish {
                     return None;
                 }
                 self.position += len as u64;
@@ -148,12 +163,12 @@ mod tests {
 		        None => break
 		    }
 			
-			println!("filename: {:?}", watcher.filename);
-			println!("file inode: {:?}", watcher.inode);
-			println!("file position: {:?}", watcher.position);
+			println!("filename: {:?}", watcher.get_filename());
+			println!("file inode: {:?}", watcher.get_inode());
+			println!("file position: {:?}", watcher.get_position());
 			
 			if times == 5 {
-				watcher.close = true;
+				watcher.close();
 			}
 			times += 1;
 		}

@@ -1,6 +1,6 @@
 [package]
 name = "filewatcher"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["kingxsp <jin_hb_zh@126.com>"]
 license = "Apache-2.0"
 description = "File Watcher Library"

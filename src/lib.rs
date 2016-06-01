@@ -115,7 +115,6 @@ impl FileWatcher {
                 }
 			},
             Ok(len) => {
-				println!("resp: {:?}", resp);
                 if self.finish {
                     return None;
                 }

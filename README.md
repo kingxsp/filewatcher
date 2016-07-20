@@ -5,7 +5,7 @@
 First, add the following to your `Cargo.toml`
 
     [dependencies]
-    filewatcher = "0.2.0"
+    filewatcher = "0.2.2"
 
 Example
 

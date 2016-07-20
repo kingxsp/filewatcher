@@ -2,8 +2,6 @@ use std::fs::File;
 use std::io::SeekFrom;
 use std::io::BufReader;
 use std::io::prelude::*;
-use std::thread::sleep;
-use std::time::Duration;
 use std::os::unix::fs::MetadataExt;
 use std::io::ErrorKind;
 
@@ -13,6 +11,22 @@ pub struct FileWatcher {
     position: u64,
     reader: BufReader<File>,
 	finish: bool
+}
+
+impl Clone for FileWatcher {
+    fn clone(&self) -> FileWatcher {
+        let file = File::open(&self.filename).unwrap();
+        let mut reader = BufReader::new(file);
+        reader.seek(SeekFrom::Start(self.position)).unwrap();
+
+        FileWatcher { 
+            filename: self.filename.clone(),
+            inode: self.inode,
+            position: self.position,
+            reader: reader,
+            finish: self.finish,
+        }
+    }
 }
 
 pub enum Message {
@@ -43,13 +57,13 @@ impl FileWatcher {
     }
 	
 	
-	pub fn reposition(&mut self, inode: u64, start_pos: u64) -> Result<&mut FileWatcher, &'static str> {
+	pub fn reposition(&mut self, inode: u64, start_pos: u64) -> Result<FileWatcher, &'static str> {
 		if inode > 0 && self.inode != inode {
 			return Err("last watcher file inode is can't be match!");
 		}
 		self.position = start_pos;
         self.reader.seek(SeekFrom::Start(self.position)).unwrap();
-		Ok(self)
+		Ok(self.clone())
 	}
 	
 	pub fn get_filename(&mut self) -> String {
@@ -75,7 +89,6 @@ impl FileWatcher {
                     let metadata = match f.metadata() {
                         Ok(m) => m,
                         Err(_) => {
-                            sleep(Duration::new(1, 0));
                             continue;
                         }
                     };
@@ -83,8 +96,6 @@ impl FileWatcher {
                     if metadata.ino() != self.inode{
                         self.position = 0;
                         self.inode = metadata.ino();
-                    } else {
-                        sleep(Duration::new(1, 0));
                     }
 					self.reader.seek(SeekFrom::Start(self.position)).unwrap();
                     break;
@@ -94,7 +105,6 @@ impl FileWatcher {
 						if self.finish {
 							break;
 						}
-                        sleep(Duration::new(1, 0));
                         continue;
                     }
                 }
